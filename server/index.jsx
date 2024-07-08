@@ -1,5 +1,5 @@
 const express = require('express');
-const mysql = require('mysql');
+const mysql = require('mysql2');
 const cors = require('cors');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
@@ -11,13 +11,15 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Configuración de la conexión a la base de datos
 const db = mysql.createConnection({
     host: "localhost",
     user: "root",
-    password: "",
+    password: "mysql",
     database: "Final"
 });
 
+// Conexión a la base de datos
 db.connect(err => {
     if (err) {
         console.log('Error connecting to MySQL:', err);
@@ -26,12 +28,12 @@ db.connect(err => {
     }
 });
 
-// Registro
+// Registro de usuarios
 app.post('/register', (req, res) => {
     const { username, password, role } = req.body;
-    const hashedPassword = bcrypt.hashSync(password, 10);
+    const hashedPassword = bcrypt.hashSync(password, 10); // Encriptación de la contraseña
 
-    db.query('INSERT INTO users (username, password, role) VALUES (?, ?, ?)', [username, hashedPassword, role], (err, result) => {
+    db.query('INSERT INTO usuarios (username, password, role_id) VALUES (?, ?, ?)', [username, hashedPassword, role], (err, result) => {
         if (err) {
             res.status(500).json({ msg: err.message });
         } else {
@@ -44,21 +46,32 @@ app.post('/register', (req, res) => {
 app.post('/login', (req, res) => {
     const { username, password } = req.body;
 
-    db.query('SELECT * FROM users WHERE username = ?', [username], (err, results) => {
+    db.query('SELECT * FROM usuarios WHERE username = ?', [username], (err, results) => {
         if (err) {
             res.status(500).json({ msg: err.message });
         } else if (results.length > 0) {
             const user = results[0];
-            const isValid = bcrypt.compareSync(password, user.password);
+            const isValid = bcrypt.compareSync(password, user.password); // Comparación de la contraseña
 
             if (isValid) {
-                const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
-                res.json({ token });
+                const token = jwt.sign({ id: user.id, role: user.role_id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+                res.json({ token, role: user.role_id });
             } else {
                 res.status(401).json({ msg: 'Credenciales incorrectas' });
             }
         } else {
             res.status(404).json({ msg: 'Usuario no encontrado' });
+        }
+    });
+});
+
+// Obtener roles
+app.get('/roles', (req, res) => {
+    db.query('SELECT id, nombre FROM roles', (err, results) => {
+        if (err) {
+            res.status(500).json({ msg: err.message });
+        } else {
+            res.json(results);
         }
     });
 });
@@ -75,77 +88,63 @@ const authenticateToken = (req, res, next) => {
     });
 };
 
-// Rutas CRUD para empleados (protegidas)
+// Crear empleado
+app.post("/create", authenticateToken, (req, res) => { // Añadir autenticación
+    const { nombre, edad, pais, cargo, años } = req.body;
 
-app.post("/create",(req,res)=>{ //aqui registramos
-    const nombre= req.body.nombre;
-    const edad= req.body.edad;
-    const pais= req.body.pais;
-    const cargo= req.body.cargo;
-    const años= req.body.años;
-
-    db.query('INSERT INTO empleados(nombre,edad,pais,cargo,años) VALUES(?,?,?,?,?)',[nombre,edad,pais,cargo,años],
-        (err,result)=>{
-            if(err){
-                console.log(err);
-            }
-            else{
-                res.send(result)
+    db.query('INSERT INTO empleados(nombre,edad,pais,cargo,años) VALUES(?,?,?,?,?)', [nombre, edad, pais, cargo, años],
+        (err, result) => {
+            if (err) {
+                res.status(500).json({ msg: err.message });
+            } else {
+                res.status(201).json(result);
             }
         }
     );
 });
 
+// Obtener todos los empleados
+app.get("/empleados", authenticateToken, (req, res) => { // Añadir autenticación
+    db.query('SELECT * FROM empleados', (err, result) => {
+        if (err) {
+            res.status(500).json({ msg: err.message });
+        } else {
+            res.json(result);
+        }
+    });
+});
 
-app.get("/empleados",(req,res)=>{ //aqui MOSTRAMOS
+// Actualizar empleado
+app.put("/update", authenticateToken, (req, res) => { // Añadir autenticación
+    const { id, nombre, edad, pais, cargo, años } = req.body;
 
-    db.query('SELECT*FROM empleados ',
-        (err,result)=>{
-            if(err){
-                console.log(err);
-            }
-            else{
-                res.send(result);
+    db.query('UPDATE empleados SET nombre=?,edad=?,pais=?,cargo=?,años=? WHERE id=?', [nombre, edad, pais, cargo, años, id],
+        (err, result) => {
+            if (err) {
+                res.status(500).json({ msg: err.message });
+            } else {
+                res.json(result);
             }
         }
     );
 });
 
-app.put("/update",(req,res)=>{ //aqui actualizamos
-    const id= req.body.id;
-    const nombre= req.body.nombre;
-    const edad= req.body.edad;
-    const pais= req.body.pais;
-    const cargo= req.body.cargo;
-    const años= req.body.años;
+// Eliminar empleado
+app.delete("/delete/:id", authenticateToken, (req, res) => { // Añadir autenticación
+    const id = req.params.id;
 
-    db.query('UPDATE empleados SET nombre=?,edad=?,pais=?,cargo=?,años=? WHERE id=?',[nombre,edad,pais,cargo,años,id],
-        (err,result)=>{
-            if(err){
-                console.log(err);
-            }
-            else{
-                res.send(result)
+    db.query('DELETE FROM empleados WHERE id=?', id,
+        (err, result) => {
+            if (err) {
+                res.status(500).json({ msg: err.message });
+            } else {
+                res.json(result);
             }
         }
     );
 });
 
-app.delete("/delete/:id",(req,res)=>{ //aqui eliminamos
-    const id= req.params.id;
-   
-
-    db.query('DELETE FROM empleados WHERE id=?',id,
-        (err,result)=>{
-            if(err){
-                console.log(err);
-            }
-            else{
-                res.send(result)
-            }
-        }
-    );
+// Iniciar el servidor
+app.listen(3001, () => {
+    console.log("Corriendo en el puerto 3001");
 });
-
-
-app.listen(3001,()=>{console.log("Corriendo en el puerto 3001")})

@@ -1,35 +1,58 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Axios from 'axios';
 import Swal from 'sweetalert2';
+import { useNavigate } from 'react-router-dom';
 
 const Login = () => {
     const [isRegister, setIsRegister] = useState(false);
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [role, setRole] = useState('');
+    const [roles, setRoles] = useState([]);
+    const navigate = useNavigate();
 
-    const handleAuth = () => {
+    useEffect(() => {
         if (isRegister) {
-            Axios.post('http://localhost:3001/register', {
-                username,
-                password,
-                role
-            }).then(response => {
+            Axios.get('http://localhost:3001/roles').then(response => {
+                setRoles(response.data);
+            }).catch(error => {
+                console.error('Error fetching roles:', error);
+            });
+        }
+    }, [isRegister]);
+
+    const handleAuth = async () => {
+        try {
+            if (isRegister) {
+                const response = await Axios.post('http://localhost:3001/register', {
+                    username,
+                    password,
+                    role
+                });
                 Swal.fire('Registro Exitoso', 'Usuario registrado correctamente', 'success');
                 setIsRegister(false);
-            }).catch(error => {
-                Swal.fire('Error', error.response.data.msg, 'error');
-            });
-        } else {
-            Axios.post('http://localhost:3001/login', {
-                username,
-                password
-            }).then(response => {
+                setUsername('');
+                setPassword('');
+                setRole('');
+            } else {
+                const response = await Axios.post('http://localhost:3001/login', {
+                    username,
+                    password
+                });
                 localStorage.setItem('token', response.data.token);
+                localStorage.setItem('role', response.data.role); // Guarda el rol
                 Swal.fire('Login Exitoso', 'Has iniciado sesión correctamente', 'success');
-            }).catch(error => {
-                Swal.fire('Error', error.response.data.msg, 'error');
-            });
+
+                // Debugging line
+                console.log('Role:', response.data.role);
+
+                if (response.data.role === 'admin') {
+                    navigate('/menu'); // Redirige al componente Menu si el rol es admin
+                }
+            }
+        } catch (error) {
+            console.error('Error during authentication:', error);
+            Swal.fire('Error', error.response?.data?.msg || 'Error desconocido', 'error');
         }
     };
 
@@ -47,7 +70,12 @@ const Login = () => {
             {isRegister && (
                 <div className="mb-3">
                     <label className="form-label">Rol</label>
-                    <input type="text" className="form-control" value={role} onChange={e => setRole(e.target.value)} />
+                    <select className="form-control" value={role} onChange={e => setRole(e.target.value)}>
+                        <option value="" disabled>Selecciona un rol</option>
+                        {roles.map(role => (
+                            <option key={role.id} value={role.id}>{role.nombre}</option>
+                        ))}
+                    </select>
                 </div>
             )}
             <button className="btn btn-primary" onClick={handleAuth}>{isRegister ? 'Registrar' : 'Iniciar Sesión'}</button>

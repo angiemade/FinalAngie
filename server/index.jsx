@@ -55,7 +55,7 @@ app.post('/login', (req, res) => {
 
             if (isValid) {
                 const token = jwt.sign({ id: user.id, role: user.role_id }, process.env.JWT_SECRET, { expiresIn: '1h' });
-                res.json({ token, role: user.role_id });
+                res.json({ token, role: user.role_id }); // Devuelve el rol como parte de la respuesta
             } else {
                 res.status(401).json({ msg: 'Credenciales incorrectas' });
             }
@@ -64,6 +64,14 @@ app.post('/login', (req, res) => {
         }
     });
 });
+
+// Cerrar sesión
+app.post('/logout', (req, res) => {
+    // En este caso no hay mucho que hacer en el servidor, simplemente responder que la sesión se ha cerrado
+    res.json({ msg: 'Sesión cerrada' });
+});
+
+
 
 // Obtener roles
 app.get('/roles', (req, res) => {
@@ -78,7 +86,8 @@ app.get('/roles', (req, res) => {
 
 // Middleware de autenticación
 const authenticateToken = (req, res, next) => {
-    const token = req.headers['authorization'];
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
     if (token == null) return res.sendStatus(401);
 
     jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
@@ -88,57 +97,119 @@ const authenticateToken = (req, res, next) => {
     });
 };
 
+
+// // Crear nota
+// app.post('/notas', authenticateToken, (req, res) => {
+//     const { contenido } = req.body;
+//     const usuario_id = req.user.id;
+//     const role_id = req.user.role;
+
+//     db.query('INSERT INTO notas (usuario_id, contenido, role_id) VALUES (?, ?, ?)', [usuario_id, contenido, role_id], (err, result) => {
+//         if (err) {
+//             res.status(500).json({ msg: err.message });
+//         } else {
+//             res.status(201).json(result);
+//         }
+//     });
+// });
+
+app.post('/notas', authenticateToken, (req, res) => {
+    const { contenido } = req.body;
+    const usuario_id = req.user.id;
+
+    db.query('INSERT INTO notas (usuario_id, contenido) VALUES (?, ?)', [usuario_id, contenido], (err, result) => {
+        if (err) {
+            res.status(500).json({ msg: err.message });
+        } else {
+            res.status(201).json(result);
+        }
+    });
+});
+
+
+// // Obtener notas
+// app.get('/notas', authenticateToken, (req, res) => {
+//     db.query('SELECT notas.*, usuarios.username, roles.nombre AS role FROM notas JOIN usuarios ON notas.usuario_id = usuarios.id JOIN roles ON notas.role_id = roles.id', (err, results) => {
+//         if (err) {
+//             res.status(500).json({ msg: err.message });
+//         } else {
+//             res.json(results);
+//         }
+//     });
+// });
+
+app.get('/notas', authenticateToken, (req, res) => {
+    db.query('SELECT notas.*, usuarios.username FROM notas JOIN usuarios ON notas.usuario_id = usuarios.id', (err, results) => {
+        if (err) {
+            res.status(500).json({ msg: err.message });
+        } else {
+            res.json(results);
+        }
+    });
+});
+
+
+
 // Crear empleado
-app.post("/create", authenticateToken, (req, res) => { // Añadir autenticación
-    const { nombre, edad, pais, cargo, años } = req.body;
+app.post("/create", (req, res) => {
+    const nombre = req.body.nombre;
+    const edad = req.body.edad;
+    const pais = req.body.pais;
+    const cargo = req.body.cargo;
+    const años = req.body.años;
 
     db.query('INSERT INTO empleados(nombre,edad,pais,cargo,años) VALUES(?,?,?,?,?)', [nombre, edad, pais, cargo, años],
         (err, result) => {
             if (err) {
-                res.status(500).json({ msg: err.message });
+                console.log(err);
             } else {
-                res.status(201).json(result);
+                res.send(result);
             }
         }
     );
 });
 
 // Obtener todos los empleados
-app.get("/empleados", authenticateToken, (req, res) => { // Añadir autenticación
+app.get("/empleados", (req, res) => {
     db.query('SELECT * FROM empleados', (err, result) => {
         if (err) {
-            res.status(500).json({ msg: err.message });
+            console.log(err);
         } else {
-            res.json(result);
+            res.send(result);
         }
     });
 });
 
 // Actualizar empleado
-app.put("/update", authenticateToken, (req, res) => { // Añadir autenticación
-    const { id, nombre, edad, pais, cargo, años } = req.body;
+app.put("/update", (req, res) => {
+    const id = req.body.id;
+    const nombre = req.body.nombre;
+    const edad = req.body.edad;
+    const pais = req.body.pais;
+    const cargo = req.body.cargo;
+    const años = req.body.años;
 
     db.query('UPDATE empleados SET nombre=?,edad=?,pais=?,cargo=?,años=? WHERE id=?', [nombre, edad, pais, cargo, años, id],
         (err, result) => {
             if (err) {
-                res.status(500).json({ msg: err.message });
+                console.log(err);
             } else {
-                res.json(result);
+                res.send(result);
             }
         }
     );
 });
 
 // Eliminar empleado
-app.delete("/delete/:id", authenticateToken, (req, res) => { // Añadir autenticación
+app.delete("/delete/:id", (req, res) => {
     const id = req.params.id;
 
     db.query('DELETE FROM empleados WHERE id=?', id,
         (err, result) => {
             if (err) {
-                res.status(500).json({ msg: err.message });
+                console.log(err);
             } else {
-                res.json(result);
+                res.send(result);
             }
         }
     );

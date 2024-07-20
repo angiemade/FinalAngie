@@ -1,0 +1,24 @@
+.container {
+    margin: 20px;
+  }
+  
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .nota-container {
+    display: flex;
+    align-items: center;
+  }
+  
+  textarea {
+    flex: 1;
+    margin-right: 10px;
+  }
+  
+  .list-group {
+    margin-top: 20px;
+  }
+  

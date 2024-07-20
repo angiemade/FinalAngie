@@ -46,8 +46,10 @@ const Login = () => {
                 // Debugging line
                 console.log('Role:', response.data.role);
 
-                if (response.data.role === 'admin') {
-                    navigate('/menu'); // Redirige al componente Menu si el rol es admin
+                if (response.data.role === 1) { // Supongamos que 1 es admin
+                    navigate('/home'); // Redirige al componente Menu si el rol es admin
+                } else if (response.data.role === 2) { // Supongamos que 2 es user
+                    navigate('/homeu'); // Redirige al componente Lista si el rol es user
                 }
             }
         } catch (error) {
